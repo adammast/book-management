@@ -14,10 +14,14 @@
     @yield('styles')
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a href="{{ route('books.index') }}" class="navbar-brand">Book Manager</a>
-            <a href="{{ route('books.create') }}" class="btn btn-primary">Add New Book</a>
+            <div class="navbar-nav ms-auto">
+                <a href="{{ route('books.index') }}" class="nav-link">Books</a>
+                <a href="{{ route('authors.index') }}" class="nav-link">Authors</a>
+                <a href="{{ route('books.create') }}" class="btn btn-primary ms-2">Add New Book</a>
+            </div>
         </div>
     </nav>
 

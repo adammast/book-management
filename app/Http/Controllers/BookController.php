@@ -17,7 +17,7 @@ class BookController extends Controller
      */
     public function index()
     {
-        $books = Book::all();
+        $books = Book::with('author')->get();
         return view('books.index', compact('books'));
     }
 
@@ -30,7 +30,8 @@ class BookController extends Controller
      */
     public function create()
     {
-        return view('books.create');
+        $authors = \App\Models\Author::all();
+        return view('books.create', compact('authors'));
     }
 
     /**
@@ -46,7 +47,7 @@ class BookController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'author' => 'required|string|max:255',
+            'author_id' => 'required|exists:authors,id',
         ]);
 
         Book::create($request->all());
@@ -78,7 +79,8 @@ class BookController extends Controller
      */
     public function edit(Book $book)
     {
-        return view('books.edit', compact('book'));
+        $authors = \App\Models\Author::all();
+        return view('books.edit', compact('book', 'authors'));
     }
 
     /**
@@ -95,7 +97,7 @@ class BookController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'author' => 'required|string|max:255',
+            'author_id' => 'required|exists:authors,id',
         ]);
 
         $book->update($request->all());
@@ -116,31 +118,44 @@ class BookController extends Controller
      */
     public function exportCsv(Request $request)
     {
-        // Get the list of columns to export from the request. 
-        // Defaults to 'title' and 'author' if not specified.
-        $columns = $request->input('columns', ['title', 'author']);
+        $columns = $request->input('columns', ['title']);
+        $includeAuthor = in_array('author', $columns);
 
-        $books = Book::all($columns);
+        $books = Book::with('author')->get();
 
-        $response = new StreamedResponse(function () use ($books, $columns) {
-            // Open the PHP output stream to write data directly to the browser.
+        $response = new StreamedResponse(function () use ($books, $columns, $includeAuthor) {
             $handle = fopen('php://output', 'w');
 
-            // Write the header row to the CSV
-            fputcsv($handle, $columns);
+            $headers = [];
+            foreach ($columns as $column) {
+                if ($column === 'title') {
+                    $headers[] = 'title';
+                } elseif ($column === 'author' && $includeAuthor) {
+                    $headers[] = 'author_first_name';
+                    $headers[] = 'author_last_name';
+                }
+            }
+            fputcsv($handle, $headers);
 
             foreach ($books as $book) {
-                fputcsv($handle, $book->only($columns));
+                $row = [];
+                foreach ($columns as $column) {
+                    if ($column === 'title') {
+                        $row[] = $book->title;
+                    } elseif ($column === 'author' && $includeAuthor && $book->author) {
+                        $row[] = $book->author->first_name;
+                        $row[] = $book->author->last_name;
+                    }
+                }
+                fputcsv($handle, $row);
             }
 
             fclose($handle);
         });
 
-        // Set the appropriate headers for the CSV download.
         $response->headers->set('Content-Type', 'text/csv');
         $response->headers->set('Content-Disposition', 'attachment; filename="books.csv"');
 
-        // Return the response, which triggers the download of the CSV file.
         return $response;
     }
 
@@ -156,26 +171,38 @@ class BookController extends Controller
      */
     public function exportXml(Request $request)
     {
-        // Get the list of columns to export from the request. 
-        // Defaults to 'title' and 'author' if not specified.
-        $columns = $request->input('columns', ['title', 'author']);
+        $columns = $request->input('columns', ['title']);
+        $includeAuthor = in_array('author', $columns);
 
-        $books = Book::all($columns);
+        $books = Book::with('author')->get();
 
-        $xml = new \SimpleXMLElement('<books/>');
-
-        // Loop through each book and add its data to the XML.
-        foreach ($books as $book) {
-            $bookElement = $xml->addChild('book');
-
-            // For each column specified, add a child element to the <book> element.
-            foreach ($columns as $column) {
-                // Use 'htmlspecialchars' to escape any special characters in the column values for valid XML formatting.
-                $bookElement->addChild($column, htmlspecialchars($book->$column));
+        if ($includeAuthor) {
+            $xml = new \SimpleXMLElement('<authors/>');
+            
+            $booksByAuthor = $books->groupBy('author_id');
+            
+            foreach ($booksByAuthor as $authorId => $authorBooks) {
+                $author = $authorBooks->first()->author;
+                if ($author) {
+                    $authorElement = $xml->addChild('author');
+                    $authorElement->addChild('first_name', htmlspecialchars($author->first_name));
+                    $authorElement->addChild('last_name', htmlspecialchars($author->last_name));
+                    
+                    foreach ($authorBooks as $book) {
+                        $bookElement = $authorElement->addChild('book');
+                        $bookElement->addChild('title', htmlspecialchars($book->title));
+                    }
+                }
+            }
+        } else {
+            $xml = new \SimpleXMLElement('<books/>');
+            
+            foreach ($books as $book) {
+                $bookElement = $xml->addChild('book');
+                $bookElement->addChild('title', htmlspecialchars($book->title));
             }
         }
 
-        // Convert the XML object to a string and return it as an XML response.
         return response($xml->asXML(), 200)
             ->header('Content-Type', 'application/xml')
             ->header('Content-Disposition', 'attachment; filename="books.xml"');

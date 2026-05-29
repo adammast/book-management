@@ -17,7 +17,7 @@
             @foreach ($books as $book)
                 <tr>
                     <td>{{ $book->title }}</td>
-                    <td>{{ $book->author }}</td>
+                    <td>{{ $book->author ? $book->author->first_name . ' ' . $book->author->last_name : 'N/A' }}</td>
                     <td>
                         <a href="{{ route('books.edit', $book->id) }}" class="btn btn-warning btn-sm">Edit</a>
                     </td>

@@ -4,5 +4,5 @@
 
 @section('content')
     <h2>Add a New Book</h2>
-    @include('components.book', ['action' => route('books.store'), 'method' => 'POST', 'book' => null, 'buttonText' => 'Add Book'])
+    @include('components.book', ['action' => route('books.store'), 'method' => 'POST', 'book' => null, 'buttonText' => 'Add Book', 'authors' => $authors])
 @endsection

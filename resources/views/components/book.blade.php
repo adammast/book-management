@@ -10,8 +10,15 @@
     </div>
 
     <div class="mb-3">
-        <label for="author" class="form-label">Author</label>
-        <input type="text" name="author" id="author" class="form-control" value="{{ old('author', $book->author ?? '') }}" required>
+        <label for="author_id" class="form-label">Author</label>
+        <select name="author_id" id="author_id" class="form-control" required>
+            <option value="">Select an author</option>
+            @foreach ($authors as $author)
+                <option value="{{ $author->id }}" {{ old('author_id', $book->author_id ?? '') == $author->id ? 'selected' : '' }}>
+                    {{ $author->first_name }} {{ $author->last_name }}
+                </option>
+            @endforeach
+        </select>
     </div>
 
     <div class="d-flex justify-content-center gap-2">
